@@ -27,6 +27,10 @@ const userModel = sequelize.define("User", {
     type: DataTypes.STRING,
     allowNull: false,
   },
+  created_at: {
+    type: DataTypes.DATE,
+    defaultValue: DataTypes.NOW,
+  },
 });
 
 export default userModel;

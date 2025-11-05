@@ -1,19 +1,38 @@
-import House from "../models/House.js";
+import House from "../models/house.js";
 import { generatePlan } from "../services/plangenerator.js";
+import cloudinary from "../config/cloudinary.js";
+import fs from "fs";
 
 export const generateHousePlan = async (req, res, next) => {
   try {
-    const { area, floors, rooms } = req.body;
+    const { user_id , area, floors, rooms } = req.body;
     const plan = await generatePlan(area, floors, rooms);
+    // Step 1: Generate layout JSON
+    const layoutData = await generatePlan(area, floors, rooms);
 
-    const newHouse = await House.create({
-      area,
+    // Step 2: Generate image (placeholder or dynamically)
+    // e.g., your front-end can send an image file or base64
+
+    // Example if image file is uploaded:
+    const imagePath = req.file?.path; // if using multer
+    let uploadedImage = null;
+
+    if (imagePath) {
+      uploadedImage = await cloudinary.uploader.upload(imagePath, {
+        folder: "house_plans",
+      });
+      fs.unlinkSync(imagePath); // delete local file
+    }
+    const newPlan = await House.create({
+      user_id,
+      total_area: area,
       floors,
-      rooms,
-      planDetails: plan,
+      rooms_count : rooms,
+      layout_json: layoutData,
+      layout_image_url : uploadedImage?.secure_url || null,
     });
-
-    res.status(201).json({ success: true, data: newHouse });
+s
+    res.status(201).json({ success: true, message: "House plan generated successfully",data: newPlan});
   } catch (error) {
     next(error);
   }
