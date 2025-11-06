@@ -1,27 +1,44 @@
 import userModel from "../models/user.js"; // ✅ make sure this path & filename match your model
-
+import bcrypt from "bcrypt";
+import sequelize from "../config/db.js";
+import jwt from "jsonwebtoken";
 // 🧩 Signup Controller
+
+const JWT_SECRET=process.env.JWT_SECRET;
+
 export const registerUser = async (req, res) => {
+  console.log("🔥 Signup route hit with body:", req.body);
   try {
-    const { email, password, firstName, lastName } = req.body;
-
-    // (optional) Check if user already exists
-    const existingUser = await userModel.findOne({ where: { email } });
-    if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
+    const { firstName, lastName, email, password } = req.body;
+    console.log(req.body);
+    if (!firstName || !lastName || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "All fields are required",
+      });
     }
+    // (optional) Check if user already exists
+    const [existingUser] = await sequelize.query(
+      "SELECT id FROM Users WHERE email = ?",
+      { replacements: [email] }
+    );
 
+    if (existingUser.length > 0) {
+      return res.status(400).json({ success: false, message: "User already exists" });
+    }
     // (optional) Hash password using bcrypt before saving
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create new user
-    await userModel.create({
-      email,
-      password: hashedPassword, // replace with hashedPassword if you enable bcrypt
-      firstName,
-      lastName,
-    });
+    const user = await sequelize.query(
+      `INSERT INTO Users (firstName, lastName, email, password, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, NOW(), NOW())`,
+      {
+        replacements: [firstName, lastName, email, hashedPassword],
+      }
+    );
 
+    console.log("✅ User created:", user.id);
     res.status(201).json({
       success: true,
       message: "You are signed up successfully",
@@ -31,10 +48,13 @@ export const registerUser = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error in signup",
+      error,
     });
   }
 };
 export const loginUser = async (req, res) => {
+  console.log("🔥 Login route hit with body:", req.body);
+
   try {
     const { email, password } = req.body;
 
@@ -51,7 +71,12 @@ export const loginUser = async (req, res) => {
           message: "Invalid credentials" 
         });
     }
-  
+    
+    const token = jwt.sign(
+      { id: user.id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: "1h" }
+    );
     res.status(200).json({
       success: true,
       message: "Login successful",
@@ -80,13 +105,26 @@ export const getProfile = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const user = await userModel.findByPk(userId, {
-      attributes: ["id", "firstName", "lastName", "email", "createdAt"],
+    // ✅ Raw SQL query to fetch user
+    const [results] = await sequelize.query(
+      "SELECT id, firstName, lastName, email, createdAt FROM Users WHERE id = ?",
+      {
+        replacements: [userId],
+      }
+    );
+
+    if (!results || results.length === 0) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+     const user = results[0];
+
+    res.status(200).json({
+      success: true,
+      message: "User profile fetched successfully",
+      user,
     });
 
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    res.status(200).json({ success: true, user });
   } catch (error) {
     console.error("Profile Error:", error);
     res.status(500).json({ message: "Server error" });

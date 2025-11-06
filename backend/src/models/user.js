@@ -27,10 +27,9 @@ const userModel = sequelize.define("User", {
     type: DataTypes.STRING,
     allowNull: false,
   },
-  created_at: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW,
-  },
+},
+{
+  timestamps: true, // adds createdAt and updatedAt automatically
 });
 
 export default userModel;
