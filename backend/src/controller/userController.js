@@ -12,12 +12,12 @@ export const registerUser = async (req, res) => {
     }
 
     // (optional) Hash password using bcrypt before saving
-    // const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create new user
     await userModel.create({
       email,
-      password, // replace with hashedPassword if you enable bcrypt
+      password: hashedPassword, // replace with hashedPassword if you enable bcrypt
       firstName,
       lastName,
     });
@@ -43,19 +43,52 @@ export const loginUser = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // (optional) Compare password if you hash it later
-    // const isMatch = await bcrypt.compare(password, user.password);
-
-    if (user.password !== password) {
-      return res.status(401).json({ message: "Invalid password" });
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) 
+    {
+      return res.status(401).json(
+        { 
+          message: "Invalid credentials" 
+        });
     }
-
+  
     res.status(200).json({
       success: true,
       message: "Login successful",
+      token,
     });
   } catch (error) {
     console.error("Login Error:", error);
     res.status(500).json({ message: "Error during login" });
+  }
+};
+
+export const logout = async (req, res) => {
+  try {
+    // In JWT-based systems, logout is handled client-side by deleting the token.
+    // You can optionally blacklist tokens in DB if you need strict control.
+    res.status(200).json({
+      success: true,
+      message: "Logout successful. Please clear token on client side.",
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const user = await userModel.findByPk(userId, {
+      attributes: ["id", "firstName", "lastName", "email", "createdAt"],
+    });
+
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    res.status(200).json({ success: true, user });
+  } catch (error) {
+    console.error("Profile Error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
