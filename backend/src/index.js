@@ -5,7 +5,7 @@ import sequelize from "./config/db.js";
 dotenv.config();
 
 const PORT = process.env.PORT || 5000;
-app.use(express.json());
+// app.use(express.json());
 (async () => {
   try {
     await sequelize.sync(); // sync models to DB
