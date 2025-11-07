@@ -2,7 +2,10 @@ import House from "../models/house.js";
 import HousePlan from "../models/house.js";
 import genAI from "../config/gemini.js";
 import sequelize from "../config/db.js";
-
+import path , { dirname }from "path";
+import { fileURLToPath } from "url";
+import { createCanvas } from "canvas";
+import fs from "fs"
 export const generateHousePlan = async (req, res) => {
   try {
     const { user_id,plan_name, total_area, floors, rooms_count , preferences} = req.body;
@@ -41,12 +44,47 @@ export const generateHousePlan = async (req, res) => {
     if (!match) throw new Error("No valid JSON found in model response");
 
     const jsonData = JSON.parse(match[0]);
+    
+    // 🖼️ Step 3: Generate 2D floor plan image
+    const imageFileName = `plan_${Date.now()}.png`;
+    const imagePath = path.join("uploads", imageFileName);
+
+    const canvas = createCanvas(800, 600);
+    const ctx = canvas.getContext("2d");
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, 800, 600);
+
+    const baseX = 50, baseY = 50;
+    let x = baseX, y = baseY;
+
+    jsonData.rooms.forEach((room, index) => {
+      const width = Math.sqrt(room.area) * 3;
+      const height = Math.sqrt(room.area) * 3;
+
+      ctx.fillStyle = `hsl(${index * 50}, 60%, 70%)`;
+      ctx.fillRect(x, y, width, height);
+
+      ctx.fillStyle = "#000";
+      ctx.font = "14px Arial";
+      ctx.fillText(room.name, x + 5, y + 20);
+
+      x += width + 20;
+      if (x > 700) {
+        x = baseX;
+        y += 150;
+      }
+    });
+
+    const buffer = canvas.toBuffer("image/png");
+    fs.writeFileSync(imagePath, buffer);
+    console.log(`✅ Floor plan image saved at ${imagePath}`);
 
     await sequelize.query(
-      `INSERT INTO HousePlans (user_id, plan_name, plan_data)
-       VALUES (?, ?, ?)`,
+      `INSERT INTO HousePlans (user_id, plan_name,total_area,floors, rooms_count, plan_data, layout_image_url)
+       VALUES (?, ?, ?, ?, ?, ?,?)`,
       {
-        replacements: [user_id, plan_name, JSON.stringify(jsonData)],
+        replacements: [user_id, plan_name,total_area, floors, rooms_count, JSON.stringify(jsonData),imagePath],
       }
     );
 

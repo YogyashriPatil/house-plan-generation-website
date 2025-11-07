@@ -15,15 +15,15 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan("dev"));
 
-app.get("/a",(req,res) => {
-  console.log("server is listening");
+// app.get("/a",(req,res) => {
+//   console.log("server is listening");
 
-  res.json({
-    message:"listening"
-  })
-})
-app.use("/v2/api/users", userRoutes);
-// app.use("/api/houses", houseRoutes);
+//   res.json({
+//     message:"listening"
+//   })
+// })
+app.use("/users", userRoutes);
+app.use("/api/houses", houseRoutes);
 
 // (async () => {
 //   try {
