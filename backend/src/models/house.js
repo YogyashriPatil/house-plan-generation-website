@@ -35,6 +35,10 @@ const HousePlan = sequelize.define("HousePlan", {
     type: DataTypes.STRING(255),
     allowNull: true,
   },
+  plan_data: {
+    type: DataTypes.JSON,   // 🧩 this field stores AI-generated JSON
+    allowNull: true,
+  },
   created_at: {
     type: DataTypes.DATE,
     defaultValue: DataTypes.NOW,
