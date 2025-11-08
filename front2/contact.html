@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Contact | DreamPlan</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body class="page">
+  <nav class="navbar">
+    <h2>DreamPlan</h2>
+    <ul>
+      <li><a href="home.html">Home</a></li>
+      <li><a href="history.html">History</a></li>
+      <li><a href="profile.html">Profile</a></li>
+      <li><a href="about.html">About Us</a></li>
+      <li><a href="#" id="logoutBtn">Logout</a></li>
+    </ul>
+  </nav>
+
+  <section class="content contact-section">
+    <h1>Contact Us 📬</h1>
+    <form id="contactForm">
+      <input type="text" id="name" placeholder="Your Name" required />
+      <input type="email" id="email" placeholder="Your Email" required />
+      <textarea id="message" placeholder="Your Message" rows="5" required></textarea>
+      <button type="submit">Send Message</button>
+    </form>
+  </section>
+
+  <script>
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      window.location.href = "signin.html";
+    });
+
+    document.getElementById("contactForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      alert("Thank you! We’ll get back to you soon.");
+      e.target.reset();
+    });
+  </script>
+</body>
+</html>
