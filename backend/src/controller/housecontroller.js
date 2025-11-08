@@ -5,15 +5,24 @@ import sequelize from "../config/db.js";
 import path , { dirname }from "path";
 import { fileURLToPath } from "url";
 import { createCanvas } from "canvas";
-import fs from "fs"
+import cloudinary from "../config/cloudinary.js";
+import fs from "fs";
+import DXFWriterPkg from "dxf-writer";
+const { Drawing } = DXFWriterPkg;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// 🏠 Generate House Plan (JSON → DXF → Image → Upload)
 export const generateHousePlan = async (req, res) => {
   try {
     const { user_id,plan_name, total_area, floors, rooms_count , preferences} = req.body;
 
+     // 🧠 Step 1: Generate JSON plan using Gemini
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
+  
     const prompt = `
-      You are an AI architect. Generate a JSON file for a house plan.
+      You are an AI architect. Generate a dxf file for a 2D house plan.
 
       Constraints:
       - Total area: ${total_area} sq. ft
@@ -28,63 +37,71 @@ export const generateHousePlan = async (req, res) => {
         "total_area": "number",
         "floors": "number",
         "rooms": [
-          { "name": "string", "area": "number", "floor": "number" }
+          { "name": "string", "x": number, "y": number, "width": number, "height": number }
         ]
       }
     `;
 
     const result = await model.generateContent(prompt);
-    const text = await result.response.text();
-
-    // 🧠 Safe JSON extraction
-    let jsonText = text.trim();
-    jsonText = jsonText.replace(/```json|```/g, "").trim();
-
-    const match = jsonText.match(/\{[\s\S]*\}/);
+    let text = (await result.response.text()).trim();
+    text = text.replace(/```json|```/g, "").trim();
+    const match = text.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("No valid JSON found in model response");
 
-    const jsonData = JSON.parse(match[0]);
+    const planData = JSON.parse(match[0]);
     
-    // 🖼️ Step 3: Generate 2D floor plan image
-    const imageFileName = `plan_${Date.now()}.png`;
-    const imagePath = path.join("uploads", imageFileName);
+    // 🧱 Step 2: Generate DXF file from JSON
+    const dxf = new Drawing();
+    planData.rooms.forEach((room) => {
+      const { x = 0, y = 0, width = 5, height = 5, name } = room;
+      dxf.addLine(x, y, x + width, y);
+      dxf.addLine(x + width, y, x + width, y + height);
+      dxf.addLine(x + width, y + height, x, y + height);
+      dxf.addLine(x, y + height, x, y);
+      dxf.addText(name, x + width / 2, y + height / 2, 0.25);
+    });
 
+    const outputDir = path.join(__dirname, "../../generated_plans");
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
+
+    const dxfPath = path.join(outputDir, `${plan_name.replace(/\s+/g, "_")}.dxf`);
+    fs.writeFileSync(dxfPath, dxf.toDxfString());
+
+    // 🖼️ Step 3: Convert DXF to Image (simple 2D preview)
     const canvas = createCanvas(800, 600);
     const ctx = canvas.getContext("2d");
 
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, 800, 600);
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = 2;
 
-    const baseX = 50, baseY = 50;
-    let x = baseX, y = baseY;
-
-    jsonData.rooms.forEach((room, index) => {
-      const width = Math.sqrt(room.area) * 3;
-      const height = Math.sqrt(room.area) * 3;
-
-      ctx.fillStyle = `hsl(${index * 50}, 60%, 70%)`;
-      ctx.fillRect(x, y, width, height);
-
-      ctx.fillStyle = "#000";
-      ctx.font = "14px Arial";
-      ctx.fillText(room.name, x + 5, y + 20);
-
-      x += width + 20;
-      if (x > 700) {
-        x = baseX;
-        y += 150;
-      }
+    planData.rooms.forEach((r) => {
+      ctx.strokeRect(r.x * 10, r.y * 10, r.width * 10, r.height * 10);
+      ctx.font = "12px Arial";
+      ctx.fillStyle = "#333";
+      ctx.fillText(r.name, r.x * 10 + 5, r.y * 10 + 15);
     });
 
-    const buffer = canvas.toBuffer("image/png");
-    fs.writeFileSync(imagePath, buffer);
-    console.log(`✅ Floor plan image saved at ${imagePath}`);
+    const imagePath = path.join(outputDir, `${plan_name.replace(/\s+/g, "_")}.png`);
+    const out = fs.createWriteStream(imagePath);
+    const stream = canvas.createPNGStream();
+    stream.pipe(out);
+    await new Promise((resolve) => out.on("finish", resolve));
 
+    // ☁️ Upload image to Cloudinary
+    const uploadResult = await cloudinary.uploader.upload(imagePath, {
+      folder: "house_plans",
+      resource_type: "image",
+    });
+
+    const imageUrl = uploadResult.secure_url;
+     // 💾 Store all info in DB
     await sequelize.query(
       `INSERT INTO HousePlans (user_id, plan_name,total_area,floors, rooms_count, plan_data, layout_image_url)
        VALUES (?, ?, ?, ?, ?, ?,?)`,
       {
-        replacements: [user_id, plan_name,total_area, floors, rooms_count, JSON.stringify(jsonData),imagePath],
+        replacements: [user_id, plan_name,total_area, floors, rooms_count, JSON.stringify(jsonData),imageUrl],
       }
     );
 
