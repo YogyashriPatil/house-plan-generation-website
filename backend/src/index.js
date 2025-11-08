@@ -23,7 +23,7 @@ app.use(morgan("dev"));
 //   })
 // })
 app.use("/users", userRoutes);
-app.use("/api/houses", houseRoutes);
+app.use("/houses", houseRoutes);
 
 // (async () => {
 //   try {

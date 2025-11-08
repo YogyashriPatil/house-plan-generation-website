@@ -27,33 +27,48 @@ document.getElementById("signinForm")?.addEventListener("submit", async (e) => {
     console.log('Login success:', data);
     if (data.success) {
       localStorage.setItem("token", data.token);
+      alert("Login successful!");
       window.location.href = "home.html";
     } else {
       alert(data.message || "Sign-in failed");
     }
   } catch (err) {
     console.error(err);
-    alert("Server error");
+    alert("Invalid credential");
   }
 });
 
 document.getElementById("signupForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
 
-  const name = document.getElementById("name").value.trim();
+  const firstname = document.getElementById("firstname").value.trim();
+  const lastname = document.getElementById("lastname").value.trim();
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value.trim();
-
-  if (!name || !email || !password) {
-    alert("Please fill all fields");
+  // console.log(firstname,lastname,email,password)
+  console.log(firstname, lastname, email, password );
+  if (!firstname ) {
+    alert("firstname");
+    return;
+  }
+  if  (!lastname ) {
+    alert("lastname");
+    return;
+  }
+    if  (!email ) {
+    alert("email");
+    return;
+  }
+  if  (!password) {
+    alert("password");
     return;
   }
 
   try {
-    const res = await fetch(`http://localhost:3000/users/register`, {
+    const res = await fetch("http://localhost:3000/users/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password }),
+      body: JSON.stringify({ firstName:firstname, lastName: lastname, email, password }),
     });
 
     const data = await res.json();

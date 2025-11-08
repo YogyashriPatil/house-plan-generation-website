@@ -8,80 +8,271 @@ import { createCanvas } from "canvas";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
 import DXFWriterPkg from "dxf-writer";
-const { Drawing } = DXFWriterPkg;
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// 🧠 Generate 2D House Plan (Image + Cloudinary + DB)
+// export const generateHousePlan = async (req, res) => {
+//   try {
+//     const { user_id, plan_name, total_area, floors, rooms_count, preferences } = req.body;
+
+//     if (!plan_name || !total_area || !floors || !rooms_count) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Missing required fields",
+//       });
+//     }
+
+//     // 🧠 Step 1: Generate a 2D floor plan image prompt
+//     const prompt = `
+//       You are an expert architectural AI.
+//       Generate a top-view 2D house floor plan as a PNG image.
+
+//       Details:
+//       - Plan name: ${plan_name}
+//       - Total area: ${total_area} sq.ft
+//       - Floors: ${floors}
+//       - Rooms: ${rooms_count}
+//       - User preferences: ${preferences || "Standard residential layout"}
+
+//       Requirements:
+//       - Use a simple black line drawing on a white background.
+//       - Include all key rooms with clear text labels:
+//         Living Room, Kitchen, Bedroom, Bathroom, Balcony, Parking.
+//       - If user omits details like balcony, washroom, or parking, include standard ones logically.
+//       - Layout should look professional and well proportioned (2D top-down view).
+//       - Do NOT include 3D perspective or decorative elements.
+//     `;
+
+//     // 🎨 Step 2: Generate Image using Gemini
+//     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+//     const result = await model.generateContent(prompt);
+
+//     const response = await result.response;
+
+//     // Gemini may return an image as inline_data
+//     const part = response.candidates?.[0]?.content?.parts?.find(
+//       (p) => p.inline_data?.mime_type?.startsWith("image/")
+//     );
+
+//     if (!part) {
+//       throw new Error("Model did not return image data. Try a simpler prompt.");
+//     }
+//     // 📦 Gemini returns Base64-encoded image
+//     const imageBase64 = imageResult.data[0].b64_json;
+//     const buffer = Buffer.from(imageBase64, "base64");
+
+//     // 💾 Save temporary file
+//     const fileName = `${plan_name.replace(/\s+/g, "_")}_${Date.now()}.png`;
+//     const tempPath = `./generated_plans/${fileName}`;
+//     const outputDir = path.resolve("./generated_plans");
+//     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
+//     fs.writeFileSync(tempPath, buffer);
+
+//     // ☁️ Step 3: Upload image to Cloudinary
+//     const uploadResult = await cloudinary.uploader.upload(tempPath, {
+//       folder: "house_plans",
+//       resource_type: "image",
+//     });
+//     const imageUrl = uploadResult.secure_url;
+
+//     // 🧹 Delete local temp file
+//     fs.unlinkSync(tempPath);
+
+//     // 🗄️ Step 4: Store info in DB
+//     await sequelize.query(
+//       `INSERT INTO HousePlans (user_id, plan_name, total_area, floors, rooms_count, layout_image_url)
+//        VALUES (?, ?, ?, ?, ?, ?)`,
+//       {
+//         replacements: [user_id, plan_name, total_area, floors, rooms_count, imageUrl],
+//       }
+//     );
+
+//     // ✅ Step 5: Send Response
+//     res.status(200).json({
+//       success: true,
+//       message: "2D house plan generated successfully",
+//       imageUrl,
+//     });
+//   } catch (error) {
+//     console.error("Error generating house plan:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Error generating house plan",
+//       error: error.message,
+//     });
+//   }
+// };
+
 // 🏠 Generate House Plan (JSON → DXF → Image → Upload)
 export const generateHousePlan = async (req, res) => {
   try {
-    const { user_id,plan_name, total_area, floors, rooms_count , preferences} = req.body;
+    const token = req.headers.token; // read from your custom header
+    if (!token) return res.status(401).json({ message: "No token provided" });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user_id = decoded.id; // make sure your JWT payload has `id`
+
+    if (!user_id) return res.status(400).json({ message: "User not found in token" });
+    const { plan_name, total_area, floors, rooms_count , preferences} = req.body;
 
      // 🧠 Step 1: Generate JSON plan using Gemini
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
   
     const prompt = `
-      You are an AI architect. Generate a dxf file for a 2D house plan.
+      You are an expert architectural design AI that creates valid 2D DXF files for residential houses.
 
-      Constraints:
-      - Total area: ${total_area} sq. ft
+      🎯 Objective:
+      Generate a complete 2D house floor plan in DXF format based on the user’s given requirements.
+
+      User Input:
+      - Plan name: ${plan_name}
+      - Total area (in sq.ft): ${total_area}
       - Floors: ${floors}
-      - Rooms: ${rooms_count}
-      - Plan name: "${plan_name}"
-      - preferences: "${preferences}"
-      Return ONLY valid JSON, with no explanations or text.
-      The JSON should follow this structure:
-      {
-        "plan_name": "string",
-        "total_area": "number",
-        "floors": "number",
-        "rooms": [
-          { "name": "string", "x": number, "y": number, "width": number, "height": number }
-        ]
-      }
+      - Number of rooms: ${rooms_count}
+      - User preferences (if any): ${preferences}
+
+      ---
+
+      🏗️ Rules for House Plan Generation:
+
+      1. **Plan Layout:**
+        - Always include essential rooms:
+          - Living Room / Hall
+          - Kitchen
+          - At least one Bedroom
+          - One Washroom
+          - If the user doesn’t mention certain rooms (like Balcony, Parking, Washroom, etc.), you must automatically include them in logical positions.
+
+      2. **Room Placement Guidelines:**
+        - Living Room: Place at the front near entrance.
+        - Kitchen: Adjacent to Living Room, near the dining space.
+        - Bedroom(s): Toward quieter sides, include attached washrooms where possible.
+        - Balcony: Connected to one bedroom or living room.
+        - Parking: Place near entrance (ground floor).
+        - Staircase: Include if floors > 1.
+
+      3. **DXF Geometry Instructions:**
+        - Each room must be drawn as a rectangular closed polyline or set of lines.
+        - Use real-world scale (1 unit = 1 meter).
+        - Include text labels (room names) inside each room using "TEXT" entity.
+        - Use "layers" names to organize parts:
+          - WALLS
+          - ROOMS
+          - TEXT
+          - DOORS (optional)
+        - Ensure the DXF starts with "0\nSECTION\n2\nHEADER" and ends with "0\nEOF".
+
+      4. **DXF Quality Rules:**
+        - All coordinates must be valid numeric values.
+        - The DXF must not contain placeholder text, explanations, or markdown formatting.
+        - Output should open correctly in AutoCAD or any DXF viewer.
+
+      ---
+
+      🧾 Example Output (Shortened for reference):
+
+      0
+      SECTION
+      2
+      HEADER
+      0
+      ENDSEC
+      0
+      SECTION
+      2
+      ENTITIES
+      0
+      LINE
+      8
+      WALLS
+      10
+      0
+      20
+      0
+      11
+      10
+      21
+      0
+      0
+      LINE
+      8
+      WALLS
+      10
+      10
+      20
+      0
+      11
+      10
+      21
+      8
+      0
+      TEXT
+      8
+      TEXT
+      10
+      3
+      20
+      4
+      40
+      0.5
+      1
+      Living Room
+      0
+      TEXT
+      8
+      TEXT
+      10
+      7
+      20
+      4
+      40
+      0.5
+      1
+      Kitchen
+      0
+      ENDSEC
+      0
+      EOF
+
+      ---
+
+      ⚙️ Output Format:
+      - Respond with **DXF code only**.
+      - Do **not** include explanations, comments, or markdown fences.
+      - Start with "0\nSECTION" and end with "0\nEOF".
     `;
 
     const result = await model.generateContent(prompt);
-    let text = (await result.response.text()).trim();
-    text = text.replace(/```json|```/g, "").trim();
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("No valid JSON found in model response");
+    let dxfText = result.response.text().trim();
 
-    const planData = JSON.parse(match[0]);
-    
-    // 🧱 Step 2: Generate DXF file from JSON
-    const dxf = new Drawing();
-    planData.rooms.forEach((room) => {
-      const { x = 0, y = 0, width = 5, height = 5, name } = room;
-      dxf.addLine(x, y, x + width, y);
-      dxf.addLine(x + width, y, x + width, y + height);
-      dxf.addLine(x + width, y + height, x, y + height);
-      dxf.addLine(x, y + height, x, y);
-      dxf.addText(name, x + width / 2, y + height / 2, 0.25);
-    });
+    // 🧹 Clean any accidental markdown formatting
+    dxfText = dxfText.replace(/```dxf|```/g, "").trim();
 
+    // 🔎 Basic validation
+    if (!dxfText.startsWith("0\nSECTION") || !dxfText.endsWith("0\nEOF")) {
+      throw new Error("Model output is not valid DXF format");
+    }
+
+    // 💾 Step 2: Save DXF file
     const outputDir = path.join(__dirname, "../../generated_plans");
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
 
     const dxfPath = path.join(outputDir, `${plan_name.replace(/\s+/g, "_")}.dxf`);
-    fs.writeFileSync(dxfPath, dxf.toDxfString());
+    fs.writeFileSync(dxfPath, dxfText);
 
-    // 🖼️ Step 3: Convert DXF to Image (simple 2D preview)
-    const canvas = createCanvas(800, 600);
+    // 🖼️ Step 3 (Optional): Create a placeholder image preview
+    const canvas = createCanvas(600, 400);
     const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, 600, 400);
+    ctx.fillStyle = "#000";
+    ctx.font = "20px Arial";
+    ctx.fillText(plan_name, 50, 50);
+    ctx.fillText("Auto-generated DXF plan", 50, 90);
 
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, 800, 600);
-    ctx.strokeStyle = "#000";
-    ctx.lineWidth = 2;
-
-    planData.rooms.forEach((r) => {
-      ctx.strokeRect(r.x * 10, r.y * 10, r.width * 10, r.height * 10);
-      ctx.font = "12px Arial";
-      ctx.fillStyle = "#333";
-      ctx.fillText(r.name, r.x * 10 + 5, r.y * 10 + 15);
-    });
 
     const imagePath = path.join(outputDir, `${plan_name.replace(/\s+/g, "_")}.png`);
     const out = fs.createWriteStream(imagePath);
@@ -89,7 +280,7 @@ export const generateHousePlan = async (req, res) => {
     stream.pipe(out);
     await new Promise((resolve) => out.on("finish", resolve));
 
-    // ☁️ Upload image to Cloudinary
+    // ☁️ Step 4: Upload image (optional)
     const uploadResult = await cloudinary.uploader.upload(imagePath, {
       folder: "house_plans",
       resource_type: "image",
@@ -101,14 +292,15 @@ export const generateHousePlan = async (req, res) => {
       `INSERT INTO HousePlans (user_id, plan_name,total_area,floors, rooms_count, plan_data, layout_image_url)
        VALUES (?, ?, ?, ?, ?, ?,?)`,
       {
-        replacements: [user_id, plan_name,total_area, floors, rooms_count, JSON.stringify(jsonData),imageUrl],
+        replacements: [user_id, plan_name,total_area, floors, rooms_count, dxfPath,imageUrl],
       }
     );
 
     res.status(200).json({
       success: true,
       message: "House plan generated successfully",
-      plan: jsonData,
+      dxfPath,
+      imageUrl,
     });
   } catch (error) {
     console.error("Error generating house plan:", error);
@@ -258,7 +450,6 @@ export const getHousePlanById = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
-
 
 export const getAllPlans = async (req, res, next) => {
   try {
