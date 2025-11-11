@@ -14,16 +14,12 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 app.use(morgan("dev"));
-
-// app.get("/a",(req,res) => {
-//   console.log("server is listening");
-
-//   res.json({
-//     message:"listening"
-//   })
-// })
+app.use(cors({
+  origin: "http://localhost:3000",
+  allowedHeaders: ["Content-Type", "token"]
+}));
 app.use("/users", userRoutes);
-app.use("/houses", houseRoutes);
+app.use("/api/houses", houseRoutes);
 
 // (async () => {
 //   try {
