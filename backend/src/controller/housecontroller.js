@@ -13,6 +13,25 @@ import jwt from "jsonwebtoken"
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// helper function to retry Gemini API calls
+async function generateWithRetry(model, prompt, retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const result = await model.generateContent(prompt);
+      return result;
+    } catch (err) {
+      // retry only if overloaded or service unavailable
+      if (err.message.includes("503") || err.message.includes("overloaded")) {
+        console.warn(`⚠️ Gemini overloaded. Retrying (${i + 1}/${retries})...`);
+        await new Promise((r) => setTimeout(r, 2000 * (i + 1))); // exponential backoff
+      } else {
+        throw err; // if it's another type of error, stop retrying
+      }
+    }
+  }
+  throw new Error("Gemini service unavailable after multiple retries");
+}
+
 export const generateHousePlan = async (req, res) => {
   try {
     const token = req.headers.token;
@@ -23,6 +42,25 @@ export const generateHousePlan = async (req, res) => {
     if (!user_id) return res.status(400).json({ message: "User not found in token" });
 
     const { plan_name, total_area, floors, rooms_count, preferences } = req.body;
+
+    // 🧠 Step 0: Check if a similar plan already exists for this user
+    const [existing] = await sequelize.query(
+      `SELECT * FROM HousePlans 
+      WHERE total_area = ? 
+        AND floors = ? 
+        AND rooms_count = ?
+      LIMIT 1`,
+      { replacements: [total_area, floors, rooms_count] }
+    );
+
+    if (existing.length > 0) {
+      return res.json({
+        success: true,
+        message: "Similar house plan found — showing existing result",
+        imageUrl: existing[0].layout_image_url,
+        codePreview: existing[0].plan_data?.slice(0, 300) + "...",
+      });
+    }
 
     // 🧠 Step 1: Prompt for AI to generate a JavaScript function
     const prompt = `
@@ -53,12 +91,13 @@ User input:
 
     // 🧠 Step 2: Generate the drawing function using Gemini
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-    const result = await model.generateContent(prompt);
-    console.log(result)
+    // const result = await model.generateContent(prompt);
+  //  const result = await model.generateContent(prompt);
+// with this 👇
+    const result = await generateWithRetry(model, prompt);
     let jsFunctionCode = result.response.text().trim();
-    console.log(jsFunctionCode)
     jsFunctionCode = jsFunctionCode.replace(/```(js|javascript)?/g, "").trim();
-    console.log(jsFunctionCode)
+
 
     // 🧾 Save the JS function to file
     const outputDir = path.join(process.cwd(), "outputs");
@@ -86,9 +125,17 @@ User input:
     }
 
     // 🖼️ Step 4: Save generated canvas as PNG
-    const imagePath = path.join(outputDir, `${plan_name.replace(/\s+/g, "_")}.png`);
+    // const imagePath = path.join(outputDir, `${plan_name.replace(/\s+/g, "_")}.png`);
+
     const buffer = canvas.toBuffer("image/png");
-    fs.writeFileSync(imagePath, buffer);
+    const imagePath = `data:image/png;base64,${buffer.toString("base64")}`;
+
+    // fs.writeFileSync(imagePath, buffer);
+
+    // const out = fs.createWriteStream(imagePath);
+    // const stream = canvas.createPNGStream();
+    // stream.pipe(out);
+    // await new Promise((resolve) => out.on("finish", resolve));
 
     // ☁️ Step 5: Upload to Cloudinary
     const uploadResult = await cloudinary.uploader.upload(imagePath, {
