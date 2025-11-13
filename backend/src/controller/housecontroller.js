@@ -2,35 +2,11 @@ import House from "../models/house.js";
 import HousePlan from "../models/house.js";
 import genAI from "../config/gemini.js";
 import sequelize from "../config/db.js";
-import path , { dirname }from "path";
-import { fileURLToPath } from "url";
+import path from "path";
 import { createCanvas } from "canvas";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
 import jwt from "jsonwebtoken"
-
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// helper function to retry Gemini API calls
-async function generateWithRetry(model, prompt, retries = 3) {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const result = await model.generateContent(prompt);
-      return result;
-    } catch (err) {
-      // retry only if overloaded or service unavailable
-      if (err.message.includes("503") || err.message.includes("overloaded")) {
-        console.warn(`⚠️ Gemini overloaded. Retrying (${i + 1}/${retries})...`);
-        await new Promise((r) => setTimeout(r, 2000 * (i + 1))); // exponential backoff
-      } else {
-        throw err; // if it's another type of error, stop retrying
-      }
-    }
-  }
-  throw new Error("Gemini service unavailable after multiple retries");
-}
 
 export const generateHousePlan = async (req, res) => {
   try {
@@ -43,68 +19,46 @@ export const generateHousePlan = async (req, res) => {
 
     const { plan_name, total_area, floors, rooms_count, preferences } = req.body;
 
-    // 🧠 Step 0: Check if a similar plan already exists for this user
-    const [existing] = await sequelize.query(
-      `SELECT * FROM HousePlans 
-      WHERE total_area = ? 
-        AND floors = ? 
-        AND rooms_count = ?
-      LIMIT 1`,
-      { replacements: [total_area, floors, rooms_count] }
-    );
-
-    if (existing.length > 0) {
-      return res.json({
-        success: true,
-        message: "Similar house plan found — showing existing result",
-        imageUrl: existing[0].layout_image_url,
-        codePreview: existing[0].plan_data?.slice(0, 300) + "...",
-      });
-    }
-
     // 🧠 Step 1: Prompt for AI to generate a JavaScript function
     const prompt = `
-You are an expert architectural design AI that creates valid JavaScript functions 
-to draw realistic 2D residential house floor plans on HTML canvas.
+      You are an expert architectural design AI that creates valid JavaScript functions 
+      to draw realistic 2D residential house floor plans on HTML canvas.
 
-Generate a function named drawHousePlan(ctx) that:
-- Uses ctx.strokeRect(x, y, w, h) to draw room boundaries.
-- Uses ctx.fillText("RoomName", x+10, y+20) to label rooms.
-- The layout should be logical:
-   * Living Room near entrance
-   * Kitchen adjacent to Living Room
-   * Bedrooms in quiet side
-   * Bathroom near bedrooms
-   * Balcony or Parking added logically
-- Scale drawing dimensions according to total area and room count.
-- If floors > 1, divide canvas into 2 floor layouts.
-- Include standard rooms even if user didn’t specify (like washroom, balcony, parking).
-- Do not include markdown, explanations, or non-JavaScript content.
-- Output valid JS only.
+      Generate a function named drawHousePlan(ctx) that:
+      - Uses ctx.strokeRect(x, y, w, h) to draw room boundaries.
+      - Uses ctx.fillText("RoomName", x+10, y+20) to label rooms.
+      - The layout should be logical:
+        * Living Room near entrance
+        * Kitchen adjacent to Living Room
+        * Bedrooms in quiet side
+        * Bathroom near bedrooms
+        * Balcony or Parking added logically
+      - Scale drawing dimensions according to total area and room count.
+      - If floors > 1, divide canvas into 2 floor layouts.
+      - Include standard rooms even if user didn’t specify (like washroom, balcony, parking).
+      - Do not include markdown, explanations, or non-JavaScript content.
+      - Output valid JS only.
 
-User input:
-  - Total area: ${total_area} sq.ft
-  - Floors: ${floors}
-  - Rooms count: ${rooms_count}
-  - ${preferences ? "Preferences: " + preferences : "Standard layout"}
-`;
+      User input:
+        - Total area: ${total_area} sq.ft
+        - Floors: ${floors}
+        - Rooms count: ${rooms_count}
+        - ${preferences ? "Preferences: " + preferences : "Standard layout"}
+      `;
 
     // 🧠 Step 2: Generate the drawing function using Gemini
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-    // const result = await model.generateContent(prompt);
-  //  const result = await model.generateContent(prompt);
-// with this 👇
-    const result = await generateWithRetry(model, prompt);
+    const result = await model.generateContent(prompt);
     let jsFunctionCode = result.response.text().trim();
     jsFunctionCode = jsFunctionCode.replace(/```(js|javascript)?/g, "").trim();
-
+    console.log(jsFunctionCode)
 
     // 🧾 Save the JS function to file
     const outputDir = path.join(process.cwd(), "outputs");
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
     const jsFilePath = path.join(outputDir, `${plan_name.replace(/\s+/g, "_")}.js`);
     fs.writeFileSync(jsFilePath, jsFunctionCode, "utf8");
-
+    console.log(jsFilePath)
     // 🖼️ Step 3: Create a canvas and run the generated code
     const canvas = createCanvas(1000, 800);
     const ctx = canvas.getContext("2d");
@@ -119,32 +73,25 @@ User input:
       // Safely execute the AI-generated function
       const drawFunc = new Function("ctx", jsFunctionCode + "\n return drawHousePlan(ctx);");
       drawFunc(ctx);
+      console.log("drawing done")
     } catch (err) {
       console.error("Error executing AI-generated function:", err);
       throw new Error("Generated function execution failed");
     }
 
     // 🖼️ Step 4: Save generated canvas as PNG
-    // const imagePath = path.join(outputDir, `${plan_name.replace(/\s+/g, "_")}.png`);
-
     const buffer = canvas.toBuffer("image/png");
-    const imagePath = `data:image/png;base64,${buffer.toString("base64")}`;
-
-    // fs.writeFileSync(imagePath, buffer);
-
-    // const out = fs.createWriteStream(imagePath);
-    // const stream = canvas.createPNGStream();
-    // stream.pipe(out);
-    // await new Promise((resolve) => out.on("finish", resolve));
-
-    // ☁️ Step 5: Upload to Cloudinary
+    const imagePath = path.join(outputDir, `${plan_name.replace(/\s+/g, "_")}.png`);
+    fs.writeFileSync(imagePath, buffer);
+    console.log(imagePath)
+    // ☁️ Step 5: Upload to   Cloudinary
     const uploadResult = await cloudinary.uploader.upload(imagePath, {
       folder: "house_plans",
-      resource_type: "image",
+       resource_type: "auto",
     });
-    console.log(uploadResult)
     const imageUrl = uploadResult.secure_url;
-    console.log(imageUrl)
+    console.log("✅ Uploaded to Cloudinary:", imageUrl);
+   
     // 💾 Step 6: Save to database
     await sequelize.query(
       `INSERT INTO HousePlans (user_id, plan_name, total_area, floors, rooms_count, plan_data, layout_image_url)
@@ -156,7 +103,7 @@ User input:
           total_area,
           floors,
           rooms_count,
-          jsFilePath,
+          jsFunctionCode,
           imageUrl,
         ],
       }
