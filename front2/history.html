@@ -102,7 +102,7 @@
     }
 
     /* ===== Plans Grid ===== */
-    .plans-grid {
+    /* .plans-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 2rem;
@@ -135,7 +135,77 @@
       font-size: 0.95rem;
       color: #d1d5db;
       margin-bottom: 0.25rem;
+    } */
+
+    /* Wrapper for history cards */
+    .history-wrapper {
+      display: grid;
+      grid-template-columns: repeat(2, 400px);
+      justify-content: center;
+      gap: 25px;
+      padding: 20px;
     }
+
+    /* Single Card */
+    .history-card {
+      width: 400px;
+      height: 400px;
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 15px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s;
+    }
+
+    .history-card:hover {
+      transform: translateY(-4px);
+    }
+
+    /* Header Text */
+    .card-header {
+      font-size: 20px;
+      font-weight: 700;
+      color: #222;
+      margin-bottom: 5px;
+    }
+
+    /* Sub Text */
+    .card-sub {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 12px;
+    }
+
+    /* Image Container (white box) */
+    .card-image-container {
+      flex: 1;
+      background: #ffffff;
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border: 1px solid #e0e0e0;
+    }
+
+    /* Image fits cleanly */
+    .card-image {
+      width: 100%;
+      height: 100%;
+      object-fit: contain; /* ⭐ FIX: No stretching, clean fit */
+      background: white;
+    }
+
+    /* Footer (date) */
+    .card-footer {
+      text-align: right;
+      font-size: 13px;
+      color: #888;
+      margin-top: 10px;
+    }
+
 
     /* ===== Responsive ===== */
     @media (max-width: 768px) {
@@ -167,23 +237,11 @@
 
   <section class="content">
     <h1>🕒 Your Generated Plans</h1>
-    <div id="plansContainer" class="plans-grid">
-      <!-- Example Cards (optional placeholders) -->
-      <div class="plan-card">
-        <h3>Modern Villa</h3>
-        <p>Area: 2400 sqft</p>
-        <p>Floors: 2</p>
-        <p>Rooms: 5</p>
-      </div>
-      <div class="plan-card">
-        <h3>Urban Apartment</h3>
-        <p>Area: 1200 sqft</p>
-        <p>Floors: 1</p>
-        <p>Rooms: 3</p>
-      </div>
+    <div id="historyContainer" class="history-wrapper">
+      
     </div>
   </section>
 
-  <script src="js/history.js"></script>
+  <script src="assets/js/history.js"></script>
 </body>
 </html>

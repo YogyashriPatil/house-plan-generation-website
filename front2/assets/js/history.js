@@ -11,30 +11,42 @@ document.getElementById("logoutBtn").addEventListener("click", () => {
 
 async function fetchHistory() {
   try {
-    const res = await fetch(`http://localhost:5000/api/houses/user/${user.id}`, {
-      headers: { Authorization: `Bearer ${token}` },
+    const res = await fetch(`http://localhost:3000/api/houses/history`, {
+      headers: { 
+        "Content-Type": "application/json",
+        token : token 
+      }
     });
     const data = await res.json();
+    console.log("History API Response:", data);
+    
+    const container = document.getElementById("historyContainer");
+    if (!container) {
+      console.error("historyContainer not found in HTML");
+      return;
+    }
 
-    if (data.success && data.data.length > 0) {
-      const container = document.getElementById("plansContainer");
-      container.innerHTML = data.data
+    if (data.success && Array.isArray(data.plans) && data.plans.length > 0) {
+        container.innerHTML = data.plans
         .map(
           (plan) => `
           <div class="plan-card">
-            <h3>${plan.plan_name}</h3>
-            <img src="${plan.layout_image_url}" alt="Plan Image">
-            <p><strong>Floors:</strong> ${plan.floors}</p>
-            <p><strong>Area:</strong> ${plan.total_area} sqft</p>
+            <div class="card-header">${plan.planName}</div>
+            <div class="card-sub">${plan.totalArea ? plan.totalArea : ""}</div>
+            <div class="card-image-container">
+              <img src="${plan.imageUrl}" class="card-image" alt="House Plan">
+            </div>
+            <div class="card-footer">${plan.createdAt}</div>
             <button onclick="editPlan('${plan.id}')">Edit</button>
           </div>`
         )
         .join("");
     } else {
-      document.getElementById("plansContainer").innerHTML =
+      document.getElementById("historyContainer").innerHTML =
         "<p>No plans found yet. Try generating one!</p>";
     }
   } catch (error) {
+     console.error("Fetch error:", error);
     console.error(error);
     document.getElementById("plansContainer").innerHTML = "<p>⚠️ Error fetching plans</p>";
   }
