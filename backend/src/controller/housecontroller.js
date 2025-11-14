@@ -301,12 +301,37 @@ export const getHousePlanById = async (req, res) => {
   }
 };
 
-export const getAllPlans = async (req, res, next) => {
+export const getAllPlans = async (req, res) => {
   try {
-    const houses = await House.findAll();
-    res.status(200).json({ success: true, data: houses });
+    const token = req.headers.token;
+    if (!token) return res.status(401).json({ message: "No token provided" });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user_id = decoded.id;
+    if (!user_id) return res.status(400).json({ message: "User not found in token" });
+
+    const [plans] = await sequelize.query(
+      `SELECT plan_name AS planName,
+              total_area AS totalArea,
+              layout_image_url AS imageUrl,
+              createdAt AS createdAt
+       FROM HousePlans
+       WHERE user_id = ?
+       ORDER BY created_at DESC`,
+      { replacements: [user_id] }
+    );
+
+    return res.status(200).json({
+      success: true,
+      total: plans.length,
+      plans
+    });
   } catch (error) {
-    next(error);
+    console.log("Error fetching history:", error);
+    return res.status(500).json({
+      message: "Error fetching plan history",
+      error: error.message
+    });
   }
 };
 
