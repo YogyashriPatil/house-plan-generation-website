@@ -1,6 +1,4 @@
 // assets/js/profile.js
-import { api, getToken, clearToken } from "./utils.js";
-
 document.addEventListener("DOMContentLoaded", async () => {
   const token = localStorage.getItem("token");
 
@@ -15,31 +13,31 @@ document.addEventListener("DOMContentLoaded", async () => {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
-         token: token,
+        token: token,
       },
     });
 
     const data = await res.json();
+    console.log(data.user);
 
-    if (!res.ok) {
-      throw new Error(data.message || "Failed to load profile");
+    if (data.success && data.user) {
+      document.getElementById("profileContainer").innerHTML = `
+        <div class="profile-info"><strong>Name:</strong> ${data.user.firstName} ${data.user.lastName}</div>
+        <div class="profile-info"><strong>Email:</strong> ${data.user.email}</div>
+        <div class="profile-info"><strong>Joined:</strong> ${new Date(data.user.createdAt).toLocaleDateString()}</div>
+      `;
+    } else {
+      alert("Unable to load profile!");
     }
-
-    // update the DOM
-    document.getElementById("profileContainer").innerHTML = `
-      <div class="profile-info"><strong>Name:</strong> ${data.name}</div>
-      <div class="profile-info"><strong>Email:</strong> ${data.email}</div>
-      <div class="profile-info"><strong>Joined:</strong> ${new Date(data.joined).toLocaleDateString()}</div>
-    `;
   } catch (err) {
     console.error("Profile fetch error:", err);
-    alert(err.message);
+    alert("Error loading profile");
     localStorage.removeItem("token");
     window.location.href = "signin.html";
   }
 });
 
-// Logout button
+/* Logout Button */
 document.getElementById("logoutBtn").addEventListener("click", () => {
   localStorage.removeItem("token");
   window.location.href = "signin.html";

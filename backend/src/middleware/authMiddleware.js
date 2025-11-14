@@ -32,7 +32,7 @@ export const authUser = async (req, res, next) => {
 export const verifyToken = async (req, res, next) => {
   try {
     // ✅ Read token directly from custom header "token"
-    const token = req.headers["token"]; // <-- Must use ["token"]
+    const token = req.headers.token; // <-- Must use ["token"]
 
     if (!token) {
       return res.status(401).json({
