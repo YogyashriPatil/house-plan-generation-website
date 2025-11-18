@@ -6,7 +6,7 @@ import cors from "cors";
 import morgan from "morgan";
 import houseRoutes from "./routes/houseRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
-
+import contactRoutes from "./routes/contactRoutes.js"
 const app = express();
 dotenv.config();
 
@@ -21,17 +21,8 @@ app.use(cors({
 }));
 app.use("/users", userRoutes);
 app.use("/api/houses", houseRoutes);
+app.use("/contact", contactRoutes);
 
-// (async () => {
-//   try {
-//     await sequelize.sync(); // sync models to DB
-//     console.log("📦 Database synchronized");
-
-//     app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
-//   } catch (error) {
-//     console.error("❌ Failed to start server:", error);
-//   }
-// })();
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
