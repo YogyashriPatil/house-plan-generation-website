@@ -27,8 +27,15 @@ document.getElementById("signinForm")?.addEventListener("submit", async (e) => {
     console.log('Login success:', data);
     if (data.success) {
       localStorage.setItem("token", data.token);
-      alert("Login successful!");
-      window.location.href = "home.html";
+      // Show success popup
+        const popup = document.getElementById("successPopup");
+        popup.classList.add("active");
+
+        // Redirect after 2 sec
+        setTimeout(() => {
+          window.location.href = "home.html"; // your page
+        }, 2000);
+      
     } else {
       alert(data.message || "Sign-in failed");
     }
