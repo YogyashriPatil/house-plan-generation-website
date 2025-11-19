@@ -103,6 +103,7 @@ export const logout = async (req, res) => {
 
 export const getProfile = async (req, res) => {
   try {
+
     const userId = req.user.id;
 
     // ✅ Raw SQL query to fetch user
@@ -132,21 +133,86 @@ export const getProfile = async (req, res) => {
 };
 
 
-// update profile
 export const updateProfile = async (req, res) => {
-  const { name, email, phone } = req.body;
+  const { firstname, lastname, email } = req.body;
+  const token = req.headers.token;
+
+  if (!token) {
+    return res.status(401).json({ success: false, message: "No token provided" });
+  }
 
   try {
-    await User.update(
-      { name, email, phone },
-      { where: { id: req.authUser.id } }
+    // Decode token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user_id = decoded.id;
+
+    if (!user_id) {
+      return res.status(400).json({ success: false, message: "Invalid token" });
+    }
+
+    // 1️⃣ Fetch existing user details
+    const [existingUser] = await sequelize.query(
+      `SELECT firstname, lastname, email FROM users WHERE id = ? LIMIT 1`,
+      { replacements: [user_id] }
     );
 
-    res.json({ success: true, message: "Profile updated successfully" });
-  } catch (err) {
-    res.status(500).json({ message: "Error updating profile" });
+    if (existing.length > 0) {
+      return res.status(409).json({
+        success: false,
+        message: "Email already exists. Choose another email.",
+      });
+    }
+    
+    if (!existingUser || existingUser.length === 0) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const oldData = existingUser[0];
+
+    // 2️⃣ If new value not provided → use old DB value
+    const updatedFirstName =
+      firstname && firstname.trim() !== "" ? firstname : oldData.firstname;
+
+    const updatedLastName =
+      lastname && lastname.trim() !== "" ? lastname : oldData.lastname;
+
+    const updatedEmail =
+      email && email.trim() !== "" ? email : oldData.email;
+
+    // 3️⃣ Update database
+    await sequelize.query(
+      `UPDATE users
+       SET firstname = ?, lastname = ?, email = ?
+       WHERE id = ?`,
+      {
+        replacements: [
+          updatedFirstName,
+          updatedLastName,
+          updatedEmail,
+          user_id,
+        ],
+      }
+    );
+
+    return res.json({
+      success: true,
+      message: "Profile updated successfully",
+      updatedProfile: {
+        firstname: updatedFirstName,
+        lastname: updatedLastName,
+        email: updatedEmail,
+      },
+    });
+
+  } catch (error) {
+    console.error("Update error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while updating profile",
+    });
   }
 };
+
 
 export const changePassword = async (req, res) => {
   const { oldPass, newPass } = req.body;

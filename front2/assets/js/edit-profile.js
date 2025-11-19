@@ -1,81 +1,53 @@
-const API_URL = "http://localhost:3000/api/user";
-const token = localStorage.getItem("token");
+function showPopup(message, type = "success") {
+  const popup = document.getElementById("popup");
 
-// Auto-fill user data
-window.onload = async () => {
-  try {
-    const res = await fetch(`${API_URL}/profile`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        token: token
-      }
-    });
+  popup.textContent = message;
+  popup.className = `popup show ${type}`;
 
-    const data = await res.json();
-    console.log("Profile:", data);
+  setTimeout(() => {
+    popup.classList.remove("show");
+  }, 2500);
+}
 
-    if (data.success) {
-      document.getElementById("name").value = data.user.name;
-      document.getElementById("email").value = data.user.email;
-      document.getElementById("phone").value = data.user.phone;
+
+document.getElementById("editForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const firstname = document.getElementById("firstname").value.trim();
+    const lastname = document.getElementById("lastname").value.trim();
+    const email = document.getElementById("email").value.trim();
+
+    const token = localStorage.getItem("token");  // ⭐ Your token stored here
+
+    if (!token) {
+        document.getElementById("msg").innerText = "No token found. Please login.";
+        return;
     }
-  } catch (err) {
-    console.log(err);
-  }
-};
+// http://localhost:3000/users/update-profile
+    try {
+        const res = await fetch("http://localhost:3000/users/update-profile", {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "token": token  // ⭐ Sending token in headers
+            },
+            body: JSON.stringify({ firstname, lastname, email })
+        });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById("msg").innerHTML = `<span style='color:#00ff9d'>Profile Updated!</span>`;
+            showPopup("Profile updated successfully!", "success");
 
-// Save profile
-async function updateProfile() {
-  const payload = {
-    name: document.getElementById("name").value,
-    email: document.getElementById("email").value,
-    phone: document.getElementById("phone").value
-  };
+            setTimeout(() => {
+              window.location.href = "home.html"; // redirect to home
+            }, 2000);
+        } else {
+            document.getElementById("msg").innerHTML = `<span style='color:#ff4d6d'>${data.message}</span>`;
+            showPopup(data.message || "Failed to update profile", "error");
+        }
 
-  try {
-    const res = await fetch(`${API_URL}/update-profile`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        token: token
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await res.json();
-    alert(data.message);
-  } catch (err) {
-    console.log(err);
-  }
-}
-
-// Change password
-async function changePassword() {
-  const oldPass = prompt("Enter old password:");
-  const newPass = prompt("Enter new password:");
-
-  if (!oldPass || !newPass) return alert("Fill both fields!");
-
-  try {
-    const res = await fetch(`${API_URL}/change-password`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        token: token
-      },
-      body: JSON.stringify({ oldPass, newPass })
-    });
-
-    const data = await res.json();
-    alert(data.message);
-
-  } catch (err) {
-    console.log(err);
-  }
-}
-
-function logout() {
-  localStorage.removeItem("token");
-  window.location.href = "login.html";
-}
+    } catch (err) {
+        document.getElementById("msg").innerHTML = `<span style='color:#ff4d6d'>Server error! ${err}</span>`;
+        showPopup("Server error while updating profile", "error");
+    }
+});
