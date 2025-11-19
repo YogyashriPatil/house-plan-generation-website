@@ -130,3 +130,41 @@ export const getProfile = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+
+// update profile
+export const updateProfile = async (req, res) => {
+  const { name, email, phone } = req.body;
+
+  try {
+    await User.update(
+      { name, email, phone },
+      { where: { id: req.authUser.id } }
+    );
+
+    res.json({ success: true, message: "Profile updated successfully" });
+  } catch (err) {
+    res.status(500).json({ message: "Error updating profile" });
+  }
+};
+
+export const changePassword = async (req, res) => {
+  const { oldPass, newPass } = req.body;
+
+  try {
+    const user = await User.findByPk(req.authUser.id);
+
+    const match = await bcrypt.compare(oldPass, user.password);
+    if (!match)
+      return res.status(400).json({ message: "Old password is incorrect" });
+
+    const hashed = await bcrypt.hash(newPass, 10);
+
+    await User.update({ password: hashed }, { where: { id: user.id } });
+
+    res.json({ success: true, message: "Password updated" });
+
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+};

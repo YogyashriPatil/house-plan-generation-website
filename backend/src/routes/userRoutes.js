@@ -9,5 +9,8 @@ router.post("/register", registerUser);
 router.post("/login", loginUser);
 router.post("/logout", logout); // optional; just returns message
 router.get("/profile", verifyToken, getProfile);
+router.put("/update-profile", authUser, updateProfile);
+router.put("/change-password", authUser, changePassword);
+
 // router.post("/generate", generateHousePlan)
 export default router;
