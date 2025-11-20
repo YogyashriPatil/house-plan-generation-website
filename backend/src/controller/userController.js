@@ -132,7 +132,6 @@ export const getProfile = async (req, res) => {
   }
 };
 
-
 export const updateProfile = async (req, res) => {
   const { firstname, lastname, email } = req.body;
   const token = req.headers.token;
@@ -155,8 +154,7 @@ export const updateProfile = async (req, res) => {
       `SELECT firstname, lastname, email FROM users WHERE id = ? LIMIT 1`,
       { replacements: [user_id] }
     );
-
-    if (existing.length > 0) {
+    if (existingUser.length > 0) {
       return res.status(409).json({
         success: false,
         message: "Email already exists. Choose another email.",
@@ -213,24 +211,81 @@ export const updateProfile = async (req, res) => {
   }
 };
 
-
 export const changePassword = async (req, res) => {
   const { oldPass, newPass } = req.body;
+  const token = req.headers.token;
+
+  if (!token) {
+    return res.status(401).json({ success: false, message: "No token provided" });
+  }
 
   try {
-    const user = await User.findByPk(req.authUser.id);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user_id = decoded.id;
 
+    if (!user_id) {
+      return res.status(400).json({ success: false, message: "Invalid token" });
+    }
+
+    // 🟩 Step 1: Get user from DB using SQL query
+    const [user] = await sequelize.query(
+      "SELECT * FROM users WHERE id = :id LIMIT 1",
+      {
+        replacements: { id: user_id },
+        type: sequelize.QueryTypes.SELECT,
+      }
+    );
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (!user.password) {
+      return res.status(500).json({
+        success: false,
+        message: "No password stored for this user",
+      });
+    }
+
+    // Step 3: Validate old password input
+    if (!oldPass || oldPass.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: "Old password is required",
+      });
+    }
+    // 🟩 Step 2: Compare old password
     const match = await bcrypt.compare(oldPass, user.password);
-    if (!match)
-      return res.status(400).json({ message: "Old password is incorrect" });
+    if (!match) {
+      return res.status(400).json({ success: false, message: "Old password is incorrect" });
+    }
 
-    const hashed = await bcrypt.hash(newPass, 10);
+    // 🟩 Step 3: Hash new password
+    const hashedPassword = await bcrypt.hash(newPass, 10);
 
-    await User.update({ password: hashed }, { where: { id: user.id } });
+    // 🟩 Step 4: Update password using SQL
+    await sequelize.query(
+      `UPDATE users 
+       SET password = :password 
+       WHERE id = :id`,
+      {
+        replacements: {
+          password: hashedPassword,
+          id: user_id,
+        },
+      }
+    );
 
-    res.json({ success: true, message: "Password updated" });
+    return res.status(200).json({
+      success: true,
+      message: "Password updated successfully",
+    });
 
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    console.error("Password Update Error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while updating password",
+    });
   }
 };

@@ -153,6 +153,15 @@
         font-size: 1.3rem;
       }
     }
+    #successBox {
+  display: none;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
+}
+
   </style>
 </head>
 <body class="auth-page">
@@ -170,7 +179,8 @@
     </form>
   </div>
 
-  
+    <div class="success-container" id="successBox">
+
 
   <script src="./assets/js/auth.js"></script>
 </body>

@@ -1,3 +1,13 @@
+function showPopup(message, success = true) {
+    popupMsg.style.display = "block";
+    popupMsg.style.background = success ? "#1b8f3c" : "#b61b1b";
+    popupMsg.textContent = message;
+
+    setTimeout(() => {
+      popupMsg.style.display = "none";
+    }, 2500);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     
     // 1. Get DOM elements
@@ -51,11 +61,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // 6. Handle the response
             if (response.ok) {
                 // Success (2xx status code)
-                const result = await response.json();
-                statusMessage.style.color = 'lightgreen';
-                statusMessage.textContent = 'Success! Message saved. Thank you for reaching out.';
+                showPopup("Success! Message saved. Thank you for reaching out.", true);
                 form.reset(); // Clear the form
-                console.log('Server response:', result);
+                setTimeout(() => {
+                    window.location.href = "home.html";
+                }, 2000);
             } else {
                 // Handle 4xx or 5xx errors from the server
                 const errorData = await response.json();

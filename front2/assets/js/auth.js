@@ -28,8 +28,9 @@ document.getElementById("signinForm")?.addEventListener("submit", async (e) => {
     if (data.success) {
       localStorage.setItem("token", data.token);
       // Show success popup
-        const popup = document.getElementById("successPopup");
-        popup.classList.add("active");
+        const popup = document.getElementById("successBox");
+        popup.style.display = "block";  // show popup
+
 
         // Redirect after 2 sec
         setTimeout(() => {
