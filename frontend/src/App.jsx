@@ -1,16 +1,16 @@
 import React from 'react'
-import AnimatedBackground from './components/AnimatedBg'
-import ThreeJSAnimatedBackground from './components/AnimatedBg'
+import {BrowserRouter, Routes, Route, Link, useNavigate, Outlet} from "react-router-dom"
+import AnimatedBG from './components/AnimatedBg'
+import { LandingPage } from './pages/LandingPage'
 
-const App = () => {
+function App ()
+{
   return (
-    <div className="relative w-full h-screen overflow-hidden">
-      <AnimatedBackground />
-      <div className="flex items-center justify-center h-full text-white text-3xl">
-        Your Website Content Here
-      </div>
-    </div>
+      <BrowserRouter>
+        <Routes>
+          <Route path='/' element={<LandingPage />} />
+        </Routes>
+      </BrowserRouter>
   )
 }
-
 export default App
