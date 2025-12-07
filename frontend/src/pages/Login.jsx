@@ -4,11 +4,14 @@ import { Button } from '../components/Button'
 import AnimatedBG from '../components/AnimatedBg'
 import { Heading } from '../components/Heading'
 import { Link } from 'react-router-dom'
+import { Logo } from '../components/Logo'
 const Login = () => {
   return (
     <div className="relative w-full h-screen flex items-center justify-center">
       <AnimatedBG />
-
+        <div className="absolute top-4 left-1/2 -translate-x-1/2">
+          <Logo />
+        </div>
       <div className="absolute bg-white/10 backdrop-blur-md border border-white/20 rounded-xl shadow-2xl p-8 w-[350px] text-white flex flex-col items-center gap-6 opacity-80">
         
         <Heading textValue="Login" />
