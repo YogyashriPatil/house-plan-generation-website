@@ -3,21 +3,44 @@ import AnimatedBG from '../components/AnimatedBg'
 import { Logo } from '../components/Logo'
 import { Footer } from '../components/Footer'
 import { Button } from '../components/Button'
-
-export function LandingPage(){
+import { Link } from "react-router-dom";
+export function LandingPage() {
   return (
-    <div className='text-white'>
-      <AnimatedBG />        
-      <Logo />
-        <div className='bg-center md:pl-60 md:pr-60 pt-20 '>
-          <h1 className='text-center'>Design Your Dream Home <span>with AI</span></h1>
+    <div className="relative min-h-screen text-white overflow-hidden">
 
-          <br />
-          <br />
-          <p className='text-center'>Create intelligent, realistic, and inspiring house plans in just a few second.</p>
+      {/* Background Animation */}
+      <AnimatedBG />
+
+      {/* Main Content */}
+      <div className="flex flex-col items-center justify-center text-center px-4 pt-32">
+
+        {/* Logo */}
+        <Logo />
+
+        {/* Heading */}
+        <h1 className="text-4xl md:text-6xl font-extrabold mt-10 leading-tight">
+          Design Your <span className="bg-gradient-to-r from-blue-400 to-green-400 text-transparent bg-clip-text animate-pulse">Dream Home</span> with AI
+        </h1>
+
+        {/* Tagline */}
+        <p className="mt-6 text-lg md:text-xl max-w-2xl opacity-80">
+          Create intelligent, realistic, and inspiring house plans in just a few seconds.
+        </p>
+
+        {/* CTA Button */}
+        <div className="mt-10">
+          <Link to="/login">
+            <Button textValue="Get Started"/>
+          </Link>
         </div>
-        <Button textValue={"Get Started"}/>
-        <Footer />       
+
+      </div>
+
+      {/* Footer */}
+      <div className="absolute bottom-0 w-full">
+        <Footer />
+      </div>
+
     </div>
   )
 }
