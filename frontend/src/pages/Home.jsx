@@ -1,14 +1,21 @@
 import React from 'react'
-import Navbar from '../components/Navbar'
-import Hero from '../components/Hero'
+import Topnavbar from '../components/Topnavbar'
 import AnimatedBG from '../components/AnimatedBg'
 import { Logo } from '../components/Logo'
+import { TopSidebar } from '../components/TopSidebar'
 
 export const Home = () => {
   return (
     <div>
         <AnimatedBG />
-        <Logo />
+        <div className='flex '>
+          <div className=''>
+            <Logo />
+          </div>
+          <div className='ml-90'>
+            <TopSidebar />
+          </div>
+        </div>
     </div>
   )
 }
